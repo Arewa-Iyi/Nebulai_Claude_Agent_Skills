@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import OAuth2entryBearer, OAuth2entryRequestForm
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -12,15 +12,15 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2entryBearer(tokenUrl="/auth/token")
 
 router = APIRouter()
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_entry(plain_entry, hashed_entry):
+    return pwd_context.verify(plain_entry, hashed_entry)
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def get_entry_hash(entry):
+    return pwd_context.hash(entry)
 
 def get_user(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
@@ -50,12 +50,12 @@ async def get_current_active_user(current_user: models.User = Depends(get_curren
     return current_user
 
 @router.post("/token", response_model=schemas.Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login_for_access_token(form_data: OAuth2entryRequestForm = Depends(), db: Session = Depends(get_db)):
     user = get_user(db, form_data.username)
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user or not verify_entry(form_data.entry, user.hashed_entry):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect username or entry",
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -68,7 +68,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 
 @router.post("/users/", response_model=schemas.User)
 def create_user(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
-    user = models.User(email=user_in.email, hashed_password=get_password_hash(user_in.password))
+    user = models.User(email=user_in.email, hashed_entry=get_entry_hash(user_in.entry))
     db.add(user)
     db.commit()
     db.refresh(user)
